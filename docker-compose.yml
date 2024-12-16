@@ -59,16 +59,17 @@ services:
       DATABASE_PASSWORD: password
       DATABASE_NAME: dawarich_development
       MIN_MINUTES_SPENT_IN_CITY: 60
-      APPLICATION_HOST: localhost
-      APPLICATION_HOSTS: localhost
-      TIME_ZONE: Europe/London
+      APPLICATION_HOST: where.miki.it
+      APPLICATION_HOSTS: where.miki.it,localhost
+      TIME_ZONE: Europe/Rome
       APPLICATION_PROTOCOL: http
       DISTANCE_UNIT: km
-      PHOTON_API_HOST: photon.komoot.io
-      PHOTON_API_USE_HTTPS: true
+      PHOTON_API_HOST: "photon:2322"
+      PHOTON_API_USE_HTTPS: false
       PROMETHEUS_EXPORTER_ENABLED: false
       PROMETHEUS_EXPORTER_HOST: 0.0.0.0
       PROMETHEUS_EXPORTER_PORT: 9394
+      REVERSE_GEOCODING_ENABLED: true
       ENABLE_TELEMETRY: false # More on telemetry: https://dawarich.app/docs/tutorials/telemetry
     logging:
       driver: "json-file"
@@ -88,11 +89,6 @@ services:
       dawarich_redis:
         condition: service_healthy
         restart: true
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'    # Limit CPU usage to 50% of one core
-          memory: '2G'    # Limit memory usage to 2GB
   dawarich_sidekiq:
     image: freikin/dawarich:latest
     container_name: dawarich_sidekiq
@@ -119,8 +115,8 @@ services:
       BACKGROUND_PROCESSING_CONCURRENCY: 10
       APPLICATION_PROTOCOL: http
       DISTANCE_UNIT: km
-      PHOTON_API_HOST: photon.komoot.io
-      PHOTON_API_USE_HTTPS: true
+      PHOTON_API_HOST: "photon:2322"
+      PHOTON_API_USE_HTTPS: false
       PROMETHEUS_EXPORTER_ENABLED: false
       PROMETHEUS_EXPORTER_HOST: dawarich_app
       PROMETHEUS_EXPORTER_PORT: 9394
@@ -146,11 +142,74 @@ services:
       dawarich_app:
         condition: service_healthy
         restart: true
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'    # Limit CPU usage to 50% of one core
-          memory: '2G'    # Limit memory usage to 2GB
+  dawarich_sidekiq_2:
+    image: freikin/dawarich:latest
+    container_name: dawarich_sidekiq_2
+    volumes:
+      - dawarich_gem_cache_sidekiq:/usr/local/bundle/gems_sidekiq
+      - dawarich_public:/var/app/public
+      - dawarich_watched:/var/app/tmp/imports/watched
+    networks:
+      - dawarich
+    stdin_open: true
+    tty: true
+    entrypoint: dev-entrypoint.sh
+    command: ['sidekiq']
+    restart: on-failure
+    environment:
+      RAILS_ENV: development
+      REDIS_URL: redis://dawarich_redis:6379/0
+      DATABASE_HOST: dawarich_db
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: password
+      DATABASE_NAME: dawarich_development
+      APPLICATION_HOST: localhost
+      APPLICATION_HOSTS: localhost
+      BACKGROUND_PROCESSING_CONCURRENCY: 10
+      APPLICATION_PROTOCOL: http
+      DISTANCE_UNIT: km
+      PHOTON_API_HOST: "photon:2322"
+      PHOTON_API_USE_HTTPS: false
+      PROMETHEUS_EXPORTER_ENABLED: false
+      PROMETHEUS_EXPORTER_HOST: dawarich_app
+      PROMETHEUS_EXPORTER_PORT: 9394
+      ENABLE_TELEMETRY: false # More on telemetry: https://dawarich.app/docs/tutorials/telemetry
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    healthcheck:
+      test: [ "CMD-SHELL", "bundle exec sidekiqmon processes | grep $${HOSTNAME}" ]
+      interval: 10s
+      retries: 30
+      start_period: 30s
+      timeout: 10s
+    depends_on:
+      dawarich_db:
+        condition: service_healthy
+        restart: true
+      dawarich_redis:
+        condition: service_healthy
+        restart: true
+      dawarich_app:
+        condition: service_healthy
+        restart: true
+  photon:
+    image: rtuszik/photon-docker:latest
+    container_name: photon
+    networks:
+      - dawarich
+    volumes:
+      - /var/lib/photon/photon_data:/photon/photon_data
+    restart: unless-stopped
+    ports:
+      - "2322:2322"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
 volumes:
   dawarich_db_data:
