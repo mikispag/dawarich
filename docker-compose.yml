@@ -14,7 +14,7 @@ services:
       test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
       interval: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
       timeout: 10s
   dawarich_db:
     image: postgres:14.2-alpine
@@ -33,7 +33,7 @@ services:
       test: [ "CMD-SHELL", "pg_isready -U postgres -d dawarich_development" ]
       interval: 10s
       retries: 5
-      start_period: 30s
+      start_period: 60s
       timeout: 10s
   dawarich_app:
     image: freikin/dawarich:latest
@@ -81,7 +81,7 @@ services:
       test: [ "CMD-SHELL", "wget -qO - http://127.0.0.1:3000/api/v1/health | grep -q '\"status\"\\s*:\\s*\"ok\"'" ]
       interval: 10s
       retries: 30
-      start_period: 30s
+      start_period: 60s
       timeout: 10s
     depends_on:
       dawarich_db:
@@ -131,7 +131,7 @@ services:
       test: [ "CMD-SHELL", "bundle exec sidekiqmon processes | grep $${HOSTNAME}" ]
       interval: 10s
       retries: 30
-      start_period: 30s
+      start_period: 60s
       timeout: 10s
     depends_on:
       dawarich_db:
@@ -184,7 +184,7 @@ services:
       test: [ "CMD-SHELL", "bundle exec sidekiqmon processes | grep $${HOSTNAME}" ]
       interval: 10s
       retries: 30
-      start_period: 30s
+      start_period: 60s
       timeout: 10s
     depends_on:
       dawarich_db:
