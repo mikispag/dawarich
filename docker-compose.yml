@@ -19,7 +19,8 @@ services:
   dawarich_db:
     image: postgres:17-alpine
     container_name: dawarich_db
-    shm_size: 1G
+    command: "postgres -c config_file=/etc/postgresql/postgresql.conf"
+    shm_size: 8G
     volumes:
       - dawarich_db_data:/var/lib/postgresql/data
       - dawarich_shared:/var/shared
@@ -36,7 +37,6 @@ services:
       retries: 5
       start_period: 60s
       timeout: 10s
-      command: postgres -c config_file=/etc/postgresql/postgresql.conf
   dawarich_app:
     image: freikin/dawarich:latest
     container_name: dawarich_app
