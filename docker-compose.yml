@@ -23,6 +23,7 @@ services:
     volumes:
       - dawarich_db_data:/var/lib/postgresql/data
       - dawarich_shared:/var/shared
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf
     networks:
       - dawarich
     environment:
@@ -35,6 +36,7 @@ services:
       retries: 5
       start_period: 60s
       timeout: 10s
+      command: postgres -c config_file=/etc/postgresql/postgresql.conf
   dawarich_app:
     image: freikin/dawarich:latest
     container_name: dawarich_app
