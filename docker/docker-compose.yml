@@ -25,7 +25,7 @@ services:
       - dawarich_db_data:/var/lib/postgresql/data
       - dawarich_shared:/var/shared
       - type: bind
-        source: ./postgresql.conf
+        source: ../postgresql.conf
         target: /etc/postgresql/postgresql.conf
     networks:
       - dawarich
