@@ -5,6 +5,100 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+# 0.23.5 - 2025-01-22
+
+### Added
+
+- A test for building rc Docker image.
+
+### Fixed
+
+- Fix authentication to `GET /api/v1/countries/visited_cities` with header `Authorization: Bearer YOUR_API_KEY` instead of `api_key` query param. #679
+- Fix a bug where a gpx file with empty tracks was not being imported. #646
+- Fix a bug where rc version was being checked as a stable release. #711
+
+# 0.23.3 - 2025-01-21
+
+### Changed
+
+- Synology-related files are now up to date. #684
+
+### Fixed
+
+- Drastically improved performance for Google's Records.json import. It will now take less than 5 minutes to import 500,000 points, which previously took a few hours.
+
+### Fixed
+
+- Add index only if it doesn't exist.
+
+# 0.23.1 - 2025-01-21
+
+### Fixed
+
+- Renamed unique index on points to `unique_points_lat_long_timestamp_user_id_index` to fix naming conflict with `unique_points_index`.
+
+# 0.23.0 - 2025-01-20
+
+## ⚠️ IMPORTANT ⚠️
+
+This release includes a data migration to remove duplicated points from the database. It will not remove anything except for duplcates from the `points` table, but please make sure to create a [backup](https://dawarich.app/docs/tutorials/backup-and-restore) before updating to this version.
+
+### Added
+
+- `POST /api/v1/points/create` endpoint added.
+- An index to guarantee uniqueness of points across `latitude`, `longitude`, `timestamp` and `user_id` values. This is introduced to make sure no duplicates will be created in the database in addition to previously existing validations.
+- `GET /api/v1/users/me` endpoint added to get current user.
+
+# 0.22.4 - 2025-01-20
+
+### Added
+
+- You can now drag-n-drop a point on the map to update its position. Enable the "Points" layer on the map to see the points.
+- `PATCH /api/v1/points/:id` endpoint added to update a point. It only accepts `latitude` and `longitude` params. #51 #503
+
+### Changed
+
+- Run seeds even in prod env so Unraid users could have default user.
+- Precompile assets in production env using dummy secret key base.
+
+### Fixed
+
+- Fixed a bug where route wasn't highlighted when it was hovered or clicked.
+
+# 0.22.3 - 2025-01-14
+
+### Changed
+
+- The Map now uses a canvas to draw polylines, points and fog of war. This should improve performance in browser with a lot of points and polylines.
+
+# 0.22.2 - 2025-01-13
+
+✨ The Fancy Routes release ✨
+
+### Added
+
+- In the Map Settings (coggle in the top left corner of the map), you can now enable/disable the Fancy Routes feature. Simply said, it will color your routes based on the speed of each segment.
+- Hovering over a polyline now shows the speed of the segment. Move cursor over a polyline to see the speed of different segments.
+- Distance and points number in the custom control to the map.
+
+### Changed
+
+- The name of the "Polylines" feature is now "Routes".
+
+⚠️ Important note on the Prometheus monitoring ⚠️
+
+In the previous release, `bin/dev` command in the default `docker-compose.yml` file was replaced with `bin/rails server -p 3000 -b ::`, but this way Dawarich won't be able to start Prometheus Exporter. If you want to use Prometheus monitoring, you need to use `bin/dev` command instead.
+
+Example:
+
+```diff
+  dawarich_app:
+    image: freikin/dawarich:latest
+...
+-    command: ['bin/rails', 'server', '-p', '3000', '-b', '::']
++    command: ['bin/dev']
+```
+
 # 0.22.1 - 2025-01-09
 
 ### Removed
