@@ -16,6 +16,8 @@ class User < ApplicationRecord
   has_many :trips,  dependent: :destroy
 
   after_create :create_api_key
+  after_create :import_sample_points
+  after_commit :activate, on: :create, if: -> { DawarichSettings.self_hosted? }
   before_save :sanitize_input
 
   validates :email, presence: true
@@ -23,6 +25,8 @@ class User < ApplicationRecord
   validates :reset_password_token, uniqueness: true, allow_nil: true
 
   attribute :admin, :boolean, default: false
+
+  enum :status, { inactive: 0, active: 1 }
 
   def safe_settings
     Users::SafeSettings.new(settings)
@@ -96,6 +100,22 @@ class User < ApplicationRecord
     end
   end
 
+  def can_subscribe?
+    active_until&.past? && !DawarichSettings.self_hosted?
+  end
+
+  def generate_subscription_token
+    payload = {
+      user_id: id,
+      email: email,
+      exp: 30.minutes.from_now.to_i
+    }
+
+    secret_key = ENV['JWT_SECRET_KEY']
+
+    JWT.encode(payload, secret_key, 'HS256')
+  end
+
   private
 
   def create_api_key
@@ -104,9 +124,33 @@ class User < ApplicationRecord
     save
   end
 
+  def activate
+    # TODO: Remove the `status` column in the future.
+    update(status: :active, active_until: 1000.years.from_now)
+  end
+
   def sanitize_input
     settings['immich_url']&.gsub!(%r{/+\z}, '')
     settings['photoprism_url']&.gsub!(%r{/+\z}, '')
     settings.try(:[], 'maps')&.try(:[], 'url')&.strip!
   end
+
+  # rubocop:disable Metrics/MethodLength
+  def import_sample_points
+    return unless Rails.env.development? ||
+                  Rails.env.production? ||
+                  (Rails.env.test? && ENV['IMPORT_SAMPLE_POINTS'])
+
+    import = imports.create(
+      name: 'DELETE_ME_this_is_a_demo_import_DELETE_ME',
+      source: 'gpx'
+    )
+
+    import.file.attach(
+      Rack::Test::UploadedFile.new(
+        Rails.root.join('lib/assets/sample_points.gpx'), 'application/xml'
+      )
+    )
+  end
+  # rubocop:enable Metrics/MethodLength
 end

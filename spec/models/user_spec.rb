@@ -16,12 +16,64 @@ RSpec.describe User, type: :model do
     it { is_expected.to have_many(:trips).dependent(:destroy) }
   end
 
+  describe 'enums' do
+    it { is_expected.to define_enum_for(:status).with_values(inactive: 0, active: 1) }
+  end
+
   describe 'callbacks' do
     describe '#create_api_key' do
       let(:user) { create(:user) }
 
       it 'creates api key' do
         expect(user.api_key).to be_present
+      end
+    end
+
+    describe '#activate' do
+      context 'when self-hosted' do
+        let!(:user) { create(:user, :inactive) }
+
+        before do
+          allow(DawarichSettings).to receive(:self_hosted?).and_return(true)
+        end
+
+        it 'activates user after creation' do
+          expect(user.active?).to be_truthy
+          expect(user.active_until).to be_within(1.minute).of(1000.years.from_now)
+        end
+      end
+
+      context 'when not self-hosted' do
+        before do
+          allow(DawarichSettings).to receive(:self_hosted?).and_return(false)
+        end
+
+        it 'does not activate user' do
+          user = create(:user, :inactive)
+
+          expect(user.active?).to be_falsey
+          expect(user.active_until).to be_within(1.minute).of(1.day.ago)
+        end
+      end
+    end
+
+    describe '#import_sample_points' do
+      before do
+        ENV['IMPORT_SAMPLE_POINTS'] = 'true'
+      end
+
+      after do
+        ENV['IMPORT_SAMPLE_POINTS'] = nil
+      end
+
+      it 'creates a sample import and enqueues an import job' do
+        user = create(:user)
+
+        expect(user.imports.count).to eq(1)
+        expect(user.imports.first.name).to eq('DELETE_ME_this_is_a_demo_import_DELETE_ME')
+        expect(user.imports.first.source).to eq('gpx')
+
+        expect(Import::ProcessJob).to have_been_enqueued.with(user.imports.first.id)
       end
     end
   end
@@ -36,7 +88,8 @@ RSpec.describe User, type: :model do
       let!(:stat2) { create(:stat, user:, toponyms: [{ 'country' => 'France' }]) }
 
       it 'returns array of countries' do
-        expect(subject).to eq(%w[Germany France])
+        expect(subject).to include('Germany', 'France')
+        expect(subject.count).to eq(2)
       end
     end
 
@@ -123,6 +176,52 @@ RSpec.describe User, type: :model do
 
       it 'returns years tracked' do
         expect(user.years_tracked).to eq([{ year: 2024, months: ['Jan'] }])
+      end
+    end
+
+    describe '#can_subscribe?' do
+      context 'when Dawarich is self-hosted' do
+        before do
+          allow(DawarichSettings).to receive(:self_hosted?).and_return(true)
+        end
+
+        context 'when user is active' do
+          let!(:user) { create(:user, status: :active, active_until: 1000.years.from_now) }
+
+          it 'returns false' do
+            expect(user.can_subscribe?).to be_falsey
+          end
+        end
+
+        context 'when user is inactive' do
+          let(:user) { create(:user, :inactive) }
+
+          it 'returns false' do
+            expect(user.can_subscribe?).to be_falsey
+          end
+        end
+      end
+
+      context 'when Dawarich is not self-hosted' do
+        before do
+          allow(DawarichSettings).to receive(:self_hosted?).and_return(false)
+        end
+
+        context 'when user is active' do
+          let(:user) { create(:user, status: :active, active_until: 1000.years.from_now) }
+
+          it 'returns false' do
+            expect(user.can_subscribe?).to be_falsey
+          end
+        end
+
+        context 'when user is inactive' do
+          let(:user) { create(:user, :inactive) }
+
+          it 'returns true' do
+            expect(user.can_subscribe?).to be_truthy
+          end
+        end
       end
     end
   end

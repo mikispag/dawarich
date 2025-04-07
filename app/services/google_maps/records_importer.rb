@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+# This class is used to import Google's Records.json file
+# via the CLI, vs the UI, which uses the `GoogleMaps::RecordsStorage  Importer` class.
+
 class GoogleMaps::RecordsImporter
   include Imports::Broadcaster
 
@@ -25,8 +28,7 @@ class GoogleMaps::RecordsImporter
   # rubocop:disable Metrics/MethodLength
   def prepare_location_data(location)
     {
-      latitude: location['latitudeE7'].to_f / 10**7,
-      longitude: location['longitudeE7'].to_f / 10**7,
+      lonlat: "POINT(#{location['longitudeE7'].to_f / 10**7} #{location['latitudeE7'].to_f / 10**7})",
       timestamp: parse_timestamp(location),
       altitude: location['altitude'],
       velocity: location['velocity'],
@@ -47,7 +49,7 @@ class GoogleMaps::RecordsImporter
     # rubocop:disable Rails/SkipsModelValidations
     Point.upsert_all(
       unique_batch,
-      unique_by: %i[latitude longitude timestamp user_id],
+      unique_by: %i[lonlat timestamp user_id],
       returning: false,
       on_duplicate: :skip
     )
@@ -59,8 +61,7 @@ class GoogleMaps::RecordsImporter
   def deduplicate_batch(batch)
     batch.uniq do |record|
       [
-        record[:latitude].round(7),
-        record[:longitude].round(7),
+        record[:lonlat],
         record[:timestamp],
         record[:user_id]
       ]

@@ -5,11 +5,15 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
 ruby File.read('.ruby-version').strip
 
+# https://meta.discourse.org/t/cant-rebuild-due-to-aws-sdk-gem-bump-and-new-aws-data-integrity-protections/354217/40
+gem 'aws-sdk-s3', '~> 1.177.0', require: false
+gem 'aws-sdk-core', '~> 3.215.1', require: false
+gem 'aws-sdk-kms', '~> 1.96.0', require: false
 gem 'bootsnap', require: false
 gem 'chartkick'
 gem 'data_migrate'
 gem 'devise'
-gem 'geocoder', git: 'https://github.com/alexreisner/geocoder.git', ref: '04ee293'
+gem 'geocoder'
 gem 'gpx'
 gem 'groupdate'
 gem 'httparty'
@@ -19,14 +23,16 @@ gem 'lograge'
 gem 'oj'
 gem 'pg'
 gem 'prometheus_exporter'
-gem 'activerecord-postgis-adapter', github: 'StoneGod/activerecord-postgis-adapter', branch: 'rails-8'
+gem 'activerecord-postgis-adapter'
 gem 'puma'
 gem 'pundit'
 gem 'rails', '~> 8.0'
 gem 'rgeo'
+gem 'rgeo-activerecord'
 gem 'rswag-api'
 gem 'rswag-ui'
-gem 'shrine', '~> 3.6'
+gem 'sentry-ruby'
+gem 'sentry-rails'
 gem 'sidekiq'
 gem 'sidekiq-cron'
 gem 'sidekiq-limit_fetch'
@@ -36,8 +42,10 @@ gem 'strong_migrations'
 gem 'tailwindcss-rails'
 gem 'turbo-rails'
 gem 'tzinfo-data', platforms: %i[mingw mswin x64_mingw jruby]
+gem 'jwt'
 
 group :development, :test do
+  gem 'brakeman', require: false
   gem 'debug', platforms: %i[mri mingw x64_mingw]
   gem 'dotenv-rails'
   gem 'factory_bot_rails'

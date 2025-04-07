@@ -4,6 +4,173 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+
+# 0.25.4 - 2025-04-02
+
+⚠️ This release includes a breaking change. ⚠️
+
+Make sure to add `dawarich_storage` volume and `SELF_HOSTED: "true"` to your `docker-compose.yml` file. Example:
+
+```diff
+...
+
+  dawarich_app:
+    image: freikin/dawarich:latest
+    container_name: dawarich_app
+    volumes:
+      - dawarich_public:/var/app/public
+      - dawarich_watched:/var/app/tmp/imports/watched
++     - dawarich_storage:/var/app/storage
+...
+    environment:
++     SELF_HOSTED: "true"
+
+...
+
+  dawarich_sidekiq:
+    image: freikin/dawarich:latest
+    container_name: dawarich_sidekiq
+    volumes:
+      - dawarich_public:/var/app/public
+      - dawarich_watched:/var/app/tmp/imports/watched
++     - dawarich_storage:/var/app/storage
+...
+    environment:
++     SELF_HOSTED: "true"
+
+
+volumes:
+  dawarich_db_data:
+  dawarich_shared:
+  dawarich_public:
+  dawarich_watched:
++ dawarich_storage:
+```
+
+
+In this release we're changing the way import files are being stored. Previously, they were being stored in the `raw_data` column of the `imports` table. Now, they are being attached to the import record. All new imports will be using the new storage, to migrate existing imports, you can use the `rake imports:migrate_to_new_storage` task. Run it in the container shell.
+
+This is an optional task, that will not affect your points or other data.
+Big imports might take a while to migrate, so be patient.
+
+Also, you can now migrate existing exports to the new storage using the `rake exports:migrate_to_new_storage` task (in the container shell) or just delete them.
+
+If your hardware doesn't have enough memory to migrate the imports, you can delete your imports and re-import them.
+
+## Added
+
+- Sentry is now can be used for error tracking.
+- Subscription management is now available in non self-hosted mode.
+
+## Changed
+
+- Import files are now being attached to the import record instead of being stored in the `raw_data` database column.
+- Import files can now be stored in S3-compatible storage.
+- Export files are now being attached to the export record instead of being stored in the file system.
+- Export files can now be stored in S3-compatible storage.
+- Users can now import Google's Records.json file via the UI instead of using the CLI.
+- Optional telemetry sending is now disabled and will be removed in the future.
+
+## Fixed
+
+- Moving points on the map now works correctly. #957
+- `rake points:migrate_to_lonlat` task now also reindexes the points table.
+- Fixed filling `lonlat` column for old places after reverse geocoding.
+- Deleting an import now correctly recalculates stats.
+- Datetime across the app is now being displayed in human readable format, i.e 26 Dec 2024, 13:49. Hover over the datetime to see the ISO 8601 timestamp.
+
+
+# 0.25.3 - 2025-03-22
+
+## Fixed
+
+- Fixed missing `rake points:migrate_to_lonlat` task.
+
+# 0.25.2 - 2025-03-21
+
+## Fixed
+
+- Migration to add unique index to points now contains code to remove duplicates from the database.
+- Issue with ESRI maps not being displayed correctly. #956
+
+## Added
+
+- `rake data_cleanup:remove_duplicate_points` task added to remove duplicate points from the database and export them to a CSV file.
+- `rake points:migrate_to_lonlat` task added for convenient manual migration of points to the new `lonlat` column.
+- `rake users:activate` task added to activate all users.
+
+## Changed
+
+- Merged visits now use the combined name of the merged visits.
+
+# 0.25.1 - 2025-03-17
+
+## Fixed
+
+- Coordinates on the Points page are now being displayed correctly.
+
+# 0.25.0 - 2025-03-09
+
+This release is focused on improving the visits experience.
+
+Since previous implementation of visits was not working as expected, this release introduces a new approach. It is recommended to remove all _non-confirmed_ visits before or after updating to this version.
+
+There is a known issue when data migrations are not being run automatically on some systems. If you're experiencing issues when opening map page, trips page or when trying to see visits, try executing the following command in the [Console](https://dawarich.app/docs/FAQ/#how-to-enter-dawarich-console):
+
+```ruby
+User.includes(:tracked_points, visits: :places).find_each do |user|
+  places_to_update = user.places.where(lonlat: nil)
+
+  # For each place, set the lonlat value based on longitude and latitude
+  places_to_update.find_each do |place|
+    next if place.longitude.nil? || place.latitude.nil?
+
+    # Set the lonlat to a PostGIS point with the proper SRID
+    # rubocop:disable Rails/SkipsModelValidations
+    place.update_column(:lonlat, "SRID=4326;POINT(#{place.longitude} #{place.latitude})")
+    # rubocop:enable Rails/SkipsModelValidations
+  end
+
+  user.tracked_points.update_all('lonlat = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)')
+end
+```
+
+With any errors, don't hesitate to ask for help in the [Discord server](https://discord.gg/pHsBjpt5J8).
+
+## Added
+
+- A new button to open the visits drawer.
+- User can now confirm or decline visits directly from the visits drawer.
+- Visits are now being shown on the map: orange circles for suggested visits and slightly bigger blue circles for confirmed visits.
+- User can click on a visit circle to rename it and select a place for it.
+- User can click on a visit card in the drawer panel to move to it on the map.
+- User can select click on the "Select area" button in the top right corner of the map to select an area on the map. Once area is selected, visits for all times in that area will be shown on the map, regardless of whether they are in the selected time range or not.
+- User can now select two or more visits in the visits drawer and merge them into a single visit. This operation is not reversible.
+- User can now select two or more visits in the visits drawer and confirm or decline them at once. This operation is not reversible.
+- Status field to the User model. Inactive users are now being restricted from accessing some of the functionality, which is mostly about writing data to the database. Reading is remaining unrestricted.
+- After user is created, a sample import is being created for them to demonstrate how to use the app.
+
+
+## Changed
+
+- Links to Points, Visits & Places, Imports and Exports were moved under "My data" section in the navbar.
+- Restrict access to Sidekiq in non self-hosted mode.
+- Restrict access to background jobs in non self-hosted mode.
+- Restrict access to users management in non self-hosted mode.
+- Restrict access to API for inactive users.
+- All users in self-hosted mode are active by default.
+- Points are now using `lonlat` column for storing longitude and latitude.
+- Semantic history points are now being imported much faster.
+- GPX files are now being imported much faster.
+- Trips, places and points are now using PostGIS' database attributes for storing longitude and latitude.
+- Distance calculation are now using Postgis functions and expected to be more accurate.
+
+## Fixed
+
+- Fixed a bug where non-admin users could not import Immich and Photoprism geolocation data.
+- Fixed a bug where upon point deletion it was not being removed from the map, while it was actually deleted from the database. #883
+- Fixed a bug where upon import deletion stats were not being recalculated. #824
+
 # 0.24.1 - 2025-02-13
 
 ## Custom map tiles

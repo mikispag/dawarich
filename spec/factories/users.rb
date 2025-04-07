@@ -6,6 +6,9 @@ FactoryBot.define do
       "user#{n}@example.com"
     end
 
+    status { :active }
+    active_until { 1000.years.from_now }
+
     password { SecureRandom.hex(8) }
 
     settings do
@@ -21,6 +24,11 @@ FactoryBot.define do
 
     trait :admin do
       admin { true }
+    end
+
+    trait :inactive do
+      status { :inactive }
+      active_until { 1.day.ago }
     end
 
     trait :with_immich_integration do

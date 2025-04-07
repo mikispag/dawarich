@@ -8,10 +8,15 @@ RSpec.describe GoogleMaps::PhoneTakeoutParser do
 
     let(:user) { create(:user) }
 
+    before do
+      import.file.attach(io: File.open(file_path), filename: 'phone_takeout.json', content_type: 'application/json')
+    end
+
     context 'when file content is an object' do
+      # This file contains 3 duplicates
       let(:file_path) { Rails.root.join('spec/fixtures/files/google/phone-takeout.json') }
-      let(:raw_data) { JSON.parse(File.read(file_path)) }
-      let(:import) { create(:import, user:, name: 'phone_takeout.json', raw_data:) }
+      let(:file) { Rack::Test::UploadedFile.new(file_path, 'application/json') }
+      let(:import) { create(:import, user:, name: 'phone_takeout.json', file:) }
 
       context 'when file exists' do
         it 'creates points' do
@@ -21,9 +26,10 @@ RSpec.describe GoogleMaps::PhoneTakeoutParser do
     end
 
     context 'when file content is an array' do
+      # This file contains 4 duplicates
       let(:file_path) { Rails.root.join('spec/fixtures/files/google/location-history.json') }
-      let(:raw_data) { JSON.parse(File.read(file_path)) }
-      let(:import) { create(:import, user:, name: 'phone_takeout.json', raw_data:) }
+      let(:file) { Rack::Test::UploadedFile.new(file_path, 'application/json') }
+      let(:import) { create(:import, user:, name: 'phone_takeout.json', file:) }
 
       context 'when file exists' do
         it 'creates points' do
@@ -33,12 +39,12 @@ RSpec.describe GoogleMaps::PhoneTakeoutParser do
         it 'creates points with correct data' do
           parser
 
-          expect(Point.all[6].latitude).to eq(27.696576.to_d)
-          expect(Point.all[6].longitude).to eq(-97.376949.to_d)
+          expect(Point.all[6].lat).to eq(27.696576)
+          expect(Point.all[6].lon).to eq(-97.376949)
           expect(Point.all[6].timestamp).to eq(1_693_180_140)
 
-          expect(Point.last.latitude).to eq(27.709617.to_d)
-          expect(Point.last.longitude).to eq(-97.375988.to_d)
+          expect(Point.last.lat).to eq(27.709617)
+          expect(Point.last.lon).to eq(-97.375988)
           expect(Point.last.timestamp).to eq(1_693_180_320)
         end
       end

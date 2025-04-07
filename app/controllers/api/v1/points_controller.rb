@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Api::V1::PointsController < ApiController
+  before_action :authenticate_active_api_user!, only: %i[create update destroy]
+
   def index
     start_at = params[:start_at]&.to_datetime&.to_i
     end_at   = params[:end_at]&.to_datetime&.to_i || Time.zone.now.to_i
@@ -30,7 +32,7 @@ class Api::V1::PointsController < ApiController
   def update
     point = current_api_user.tracked_points.find(params[:id])
 
-    point.update(point_params)
+    point.update(lonlat: "POINT(#{point_params[:longitude]} #{point_params[:latitude]})")
 
     render json: point_serializer.new(point).call
   end

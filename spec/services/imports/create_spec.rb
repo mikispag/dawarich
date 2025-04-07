@@ -9,11 +9,22 @@ RSpec.describe Imports::Create do
   describe '#call' do
     context 'when source is google_semantic_history' do
       let(:import) { create(:import, source: 'google_semantic_history') }
+      let(:file_path) { Rails.root.join('spec/fixtures/files/google/semantic_history.json') }
+      let(:file) { Rack::Test::UploadedFile.new(file_path, 'application/json') }
+
+      before do
+        import.file.attach(io: File.open(file_path), filename: 'semantic_history.json',
+                           content_type: 'application/json')
+      end
 
       it 'calls the GoogleMaps::SemanticHistoryParser' do
         expect(GoogleMaps::SemanticHistoryParser).to \
           receive(:new).with(import, user.id).and_return(double(call: true))
         service.call
+      end
+
+      it 'updates the import points count' do
+        expect { service.call }.to have_enqueued_job(Import::UpdatePointsCountJob).with(import.id)
       end
     end
 
@@ -29,9 +40,15 @@ RSpec.describe Imports::Create do
 
     context 'when source is owntracks' do
       let(:import) { create(:import, source: 'owntracks') }
+      let(:file_path) { Rails.root.join('spec/fixtures/files/owntracks/2024-03.rec') }
+      let(:file) { Rack::Test::UploadedFile.new(file_path, 'application/octet-stream') }
 
-      it 'calls the OwnTracks::ExportParser' do
-        expect(OwnTracks::ExportParser).to \
+      before do
+        import.file.attach(io: File.open(file_path), filename: '2024-03.rec', content_type: 'application/octet-stream')
+      end
+
+      it 'calls the OwnTracks::Importer' do
+        expect(OwnTracks::Importer).to \
           receive(:new).with(import, user.id).and_return(double(call: true))
         service.call
       end
@@ -50,7 +67,7 @@ RSpec.describe Imports::Create do
           end
         end
 
-        xit 'schedules visit suggesting' do
+        it 'schedules visit suggesting' do
           Sidekiq::Testing.inline! do
             expect { service.call }.to have_enqueued_job(VisitSuggestingJob)
           end
@@ -59,7 +76,7 @@ RSpec.describe Imports::Create do
 
       context 'when import fails' do
         before do
-          allow(OwnTracks::ExportParser).to receive(:new).with(import, user.id).and_raise(StandardError)
+          allow(OwnTracks::Importer).to receive(:new).with(import, user.id).and_raise(StandardError)
         end
 
         it 'creates a failed notification' do
@@ -72,9 +89,16 @@ RSpec.describe Imports::Create do
 
     context 'when source is gpx' do
       let(:import) { create(:import, source: 'gpx') }
+      let(:file_path) { Rails.root.join('spec/fixtures/files/gpx/gpx_track_single_segment.gpx') }
+      let(:file) { Rack::Test::UploadedFile.new(file_path, 'application/octet-stream') }
 
-      it 'calls the Gpx::TrackParser' do
-        expect(Gpx::TrackParser).to \
+      before do
+        import.file.attach(io: File.open(file_path), filename: 'gpx_track_single_segment.gpx',
+                           content_type: 'application/octet-stream')
+      end
+
+      it 'calls the Gpx::TrackImporter' do
+        expect(Gpx::TrackImporter).to \
           receive(:new).with(import, user.id).and_return(double(call: true))
         service.call
       end

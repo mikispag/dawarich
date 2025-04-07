@@ -16,14 +16,12 @@ class GoogleMaps::PhoneTakeoutParser
     points_data.compact.each.with_index(1) do |point_data, index|
       next if Point.exists?(
         timestamp:  point_data[:timestamp],
-        latitude:   point_data[:latitude],
-        longitude:  point_data[:longitude],
+        lonlat:     point_data[:lonlat],
         user_id:
       )
 
       Point.create(
-        latitude:   point_data[:latitude],
-        longitude:  point_data[:longitude],
+        lonlat:     point_data[:lonlat],
         timestamp:  point_data[:timestamp],
         raw_data:   point_data[:raw_data],
         accuracy:   point_data[:accuracy],
@@ -50,13 +48,15 @@ class GoogleMaps::PhoneTakeoutParser
     raw_signals       = []
     raw_array         = []
 
-    if import.raw_data.is_a?(Array)
-      raw_array = parse_raw_array(import.raw_data)
-    else
-      if import.raw_data['semanticSegments']
-        semantic_segments = parse_semantic_segments(import.raw_data['semanticSegments'])
+    import.file.download do |file|
+      json = Oj.load(file)
+
+      if json.is_a?(Array)
+        raw_array = parse_raw_array(json)
+      else
+        semantic_segments = parse_semantic_segments(json['semanticSegments']) if json['semanticSegments']
+        raw_signals = parse_raw_signals(json['rawSignals']) if json['rawSignals']
       end
-      raw_signals = parse_raw_signals(import.raw_data['rawSignals']) if import.raw_data['rawSignals']
     end
 
     semantic_segments + raw_signals + raw_array
@@ -72,8 +72,7 @@ class GoogleMaps::PhoneTakeoutParser
 
   def point_hash(lat, lon, timestamp, raw_data)
     {
-      latitude: lat.to_f,
-      longitude: lon.to_f,
+      lonlat: "POINT(#{lon.to_f} #{lat.to_f})",
       timestamp:,
       raw_data:,
       accuracy: raw_data['accuracyMeters'],
